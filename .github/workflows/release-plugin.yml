@@ -56,7 +56,12 @@ jobs:
           # runner 不保证预装 PyYAML，显式装一下再校验 metadata
           python3 -m pip install --quiet --disable-pip-version-check pyyaml
           python3 - <<'PY'
-          import sys, zipfile, pathlib, yaml
+          import zipfile, pathlib, yaml
+
+          # 与 AstrBot 的 PLUGIN_METADATA_REQUIRED_FIELDS 及 desc/description
+          # 归一化规则保持一致（见 astrbot/core/star/updator.py）
+          REQUIRED = ("name", "desc", "version", "author")
+
           archive = next(pathlib.Path("dist").glob("*.zip"))
           with zipfile.ZipFile(archive) as z:
               names = z.namelist()
@@ -64,12 +69,22 @@ jobs:
               assert roots == {"astrbot_plugin_chem_structure"}, f"顶层目录异常：{roots}"
               assert not any("/.github/" in n or "/dist/" in n for n in names), "混入了 CI 或构建产物"
               assert not any("__pycache__" in n for n in names), "混入了 __pycache__"
-              meta = yaml.safe_load(z.read("astrbot_plugin_chem_structure/metadata.yaml"))
-              for key in ("name", "author", "desc", "version"):
-                  assert meta.get(key), f"metadata.yaml 缺少 {key}"
-              assert "astrbot_plugin_chem_structure/main.py" in names, "缺少 main.py"
               assert z.testzip() is None, "压缩包损坏"
-          print(f"{archive}: {len(names)} 个条目，metadata 与内容检查通过")
+
+              raw = z.read("astrbot_plugin_chem_structure/metadata.yaml")
+              meta = yaml.safe_load(raw.decode("utf-8"))
+              assert isinstance(meta, dict), "metadata.yaml 不是映射"
+              normalized = dict(meta)
+              if "desc" not in normalized and "description" in normalized:
+                  normalized["desc"] = normalized["description"]
+              for key in REQUIRED:
+                  value = normalized.get(key)
+                  assert isinstance(value, str) and value.strip(), f"metadata.yaml 缺少非空字段 {key}"
+
+              assert "astrbot_plugin_chem_structure/main.py" in names, "缺少 main.py"
+              assert "astrbot_plugin_chem_structure/requirements.txt" in names, "缺少 requirements.txt"
+
+          print(f"{archive.name}: {len(names)} 个条目，metadata 与内容检查通过")
           PY
 
       - name: 上传构建产物
