@@ -53,6 +53,8 @@ jobs:
 
       - name: 用 AstrBot 的校验逻辑验证产物
         run: |
+          # runner 不保证预装 PyYAML，显式装一下再校验 metadata
+          python3 -m pip install --quiet --disable-pip-version-check pyyaml
           python3 - <<'PY'
           import sys, zipfile, pathlib, yaml
           archive = next(pathlib.Path("dist").glob("*.zip"))
@@ -60,11 +62,14 @@ jobs:
               names = z.namelist()
               roots = {n.split("/", 1)[0] for n in names}
               assert roots == {"astrbot_plugin_chem_structure"}, f"顶层目录异常：{roots}"
+              assert not any("/.github/" in n or "/dist/" in n for n in names), "混入了 CI 或构建产物"
+              assert not any("__pycache__" in n for n in names), "混入了 __pycache__"
               meta = yaml.safe_load(z.read("astrbot_plugin_chem_structure/metadata.yaml"))
               for key in ("name", "author", "desc", "version"):
                   assert meta.get(key), f"metadata.yaml 缺少 {key}"
               assert "astrbot_plugin_chem_structure/main.py" in names, "缺少 main.py"
-          print(f"{archive}: {len(names)} 个条目，metadata 正常")
+              assert z.testzip() is None, "压缩包损坏"
+          print(f"{archive}: {len(names)} 个条目，metadata 与内容检查通过")
           PY
 
       - name: 上传构建产物
