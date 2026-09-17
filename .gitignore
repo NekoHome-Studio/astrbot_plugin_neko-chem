@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行时产生的图片缓存（正式部署时位于 AstrBot 的 data 目录）
+data/
+cache/
+*png.tmp
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store

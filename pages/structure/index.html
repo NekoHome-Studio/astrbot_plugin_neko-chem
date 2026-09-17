@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>化学结构简式</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="page-heading">化学结构简式</h1>
+        <span id="env-pill" class="pill pill-neutral">正在读取环境…</span>
+      </div>
+      <div class="topbar-actions">
+        <button id="clear-button" class="button button-ghost" type="button">清空</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <div id="page-error" class="notice notice-error" role="alert" hidden></div>
+
+      <section class="panel" aria-labelledby="input-heading">
+        <div class="panel-heading">
+          <h2 id="input-heading">输入物质</h2>
+          <span class="metadata">名称 / SMILES / 结构简式 / 分子式 都能认</span>
+        </div>
+
+        <form id="render-form" class="input-row" autocomplete="off">
+          <input
+            id="input-field"
+            class="text-input"
+            type="text"
+            name="input"
+            placeholder="例如：乙醇、CCO、CH3CH(CH3)COOH、C2H6O"
+            spellcheck="false"
+            maxlength="200"
+          >
+          <button id="render-button" class="button button-primary" type="submit">画结构简式</button>
+        </form>
+
+        <div id="examples" class="chips"></div>
+
+        <div class="options-row">
+          <label class="switch">
+            <input id="option-image" type="checkbox" checked>
+            <span>输出结构简式图片</span>
+          </label>
+          <label class="switch">
+            <input id="option-skeletal" type="checkbox" checked>
+            <span>输出键线式</span>
+          </label>
+          <label class="switch">
+            <input id="option-structure" type="checkbox">
+            <span>输出结构式（优先 RDKit）</span>
+          </label>
+          <button id="download-button" class="button button-ghost" type="button" hidden>
+            下载图片
+          </button>
+        </div>
+      </section>
+
+      <section id="result" class="panel result-panel" aria-labelledby="result-heading" hidden>
+        <div class="panel-heading">
+          <h2 id="result-heading">结果</h2>
+          <span id="result-source" class="metadata"></span>
+        </div>
+
+        <div class="result-grid">
+          <figure class="figure">
+            <div id="image-holder" class="image-holder">
+              <span class="placeholder">图片渲染中…</span>
+            </div>
+            <figcaption id="image-caption" class="metadata"></figcaption>
+          </figure>
+
+          <div class="detail">
+            <dl id="detail-list" class="detail-list"></dl>
+            <div id="breakdown" class="breakdown"></div>
+            <div id="notes" class="notes"></div>
+          </div>
+        </div>
+
+        <details id="skeletal-block" class="structure-block" hidden>
+          <summary>键线式（骨架式）</summary>
+          <div id="skeletal-holder" class="image-holder"></div>
+          <p id="skeletal-message" class="metadata"></p>
+        </details>
+
+        <details id="structure-block" class="structure-block" hidden>
+          <summary id="structure-summary">结构式</summary>
+          <div id="structure-holder" class="image-holder"></div>
+          <p id="structure-message" class="metadata"></p>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="catalog-heading">
+        <div class="panel-heading">
+          <h2 id="catalog-heading">内置物质词表</h2>
+          <span id="catalog-summary" class="metadata">加载中…</span>
+        </div>
+        <div class="catalog-controls">
+          <select id="category-select" class="text-input"></select>
+          <input
+            id="catalog-filter"
+            class="text-input"
+            type="search"
+            placeholder="在词表里搜索"
+            spellcheck="false"
+          >
+        </div>
+        <div id="catalog-list" class="catalog-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

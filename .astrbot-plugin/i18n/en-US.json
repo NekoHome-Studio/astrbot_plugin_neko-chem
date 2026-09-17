@@ -1,0 +1,9 @@
+{
+  "pages": {
+    "structure": {
+      "title": "Chemical Condensed Formula",
+      "description": "Preview condensed structural formula images and molecular data from a name, SMILES, condensed formula or molecular formula",
+      "heading": "Chemical Condensed Formula"
+    }
+  }
+}

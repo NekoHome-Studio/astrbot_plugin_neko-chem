@@ -1,0 +1,9 @@
+{
+  "pages": {
+    "structure": {
+      "title": "化学结构简式",
+      "description": "输入名称、SMILES、结构简式或分子式，预览结构简式图片与分子信息",
+      "heading": "化学结构简式"
+    }
+  }
+}

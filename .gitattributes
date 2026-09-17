@@ -1,0 +1,8 @@
+# 统一按 LF 存储，避免在 Windows 上开发、在 Linux 上部署时产生整文件差异
+* text=auto eol=lf
+
+# 二进制资源
+*.png binary
+*.jpg binary
+*.ttf binary
+*.ttc binary

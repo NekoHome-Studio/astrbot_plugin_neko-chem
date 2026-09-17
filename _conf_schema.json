@@ -1,0 +1,197 @@
+{
+  "image": {
+    "description": "结构简式图片",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用图片输出",
+        "type": "bool",
+        "default": true,
+        "hint": "关闭后只用文字输出结构简式。"
+      },
+      "font_size": {
+        "description": "公式字号",
+        "type": "int",
+        "default": 56,
+        "slider": { "min": 16, "max": 160, "step": 2 },
+        "hint": "越大图片越清晰也越大，聊天里 48~72 比较合适。"
+      },
+      "padding": {
+        "description": "四周留白",
+        "type": "int",
+        "default": 28,
+        "slider": { "min": 0, "max": 200, "step": 4 }
+      },
+      "supersample": {
+        "description": "抗锯齿超采样倍数",
+        "type": "int",
+        "default": 3,
+        "slider": { "min": 1, "max": 4, "step": 1 },
+        "hint": "值越大边缘越平滑，绘制耗时略增。"
+      },
+      "transparent": {
+        "description": "透明背景",
+        "type": "bool",
+        "default": false,
+        "hint": "深色主题下透明背景更协调；部分平台不支持透明 PNG。"
+      },
+      "color": {
+        "description": "公式颜色",
+        "type": "string",
+        "default": "#111827",
+        "hint": "十六进制颜色，如 #111827 深灰、#1D4ED8 蓝。"
+      },
+      "show_title": {
+        "description": "图片顶部显示物质名称",
+        "type": "bool",
+        "default": true
+      },
+      "show_caption": {
+        "description": "图片底部显示分子式与相对分子质量",
+        "type": "bool",
+        "default": true
+      }
+    }
+  },
+  "structure": {
+    "description": "结构式绘图（RDKit）",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用结构式绘图",
+        "type": "bool",
+        "default": true,
+        "hint": "未安装 rdkit 时会自动改用下面的“内置键线式引擎”，所以通常不需要关闭。"
+      },
+      "width": {
+        "description": "结构式图片宽度",
+        "type": "int",
+        "default": 900,
+        "slider": { "min": 200, "max": 3000, "step": 50 }
+      },
+      "height": {
+        "description": "结构式图片高度",
+        "type": "int",
+        "default": 700,
+        "slider": { "min": 200, "max": 3000, "step": 50 }
+      }
+    }
+  },
+  "skeletal": {
+    "description": "内置键线式引擎（纯 Python，不需要 RDKit）",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用键线式绘图",
+        "type": "bool",
+        "default": true,
+        "hint": "环己烷、苯、萘这类环状物质没有连写式简式，就靠它出图。关闭后这些物质只能返回文字。"
+      },
+      "use_rdkit": {
+        "description": "装了 RDKit 时优先用 RDKit 画结构式",
+        "type": "bool",
+        "default": true,
+        "hint": "关闭后 /化学 结构式 一律使用内置引擎，便于对比两种画法。"
+      },
+      "bond_length": {
+        "description": "键长（像素）",
+        "type": "int",
+        "default": 54,
+        "slider": { "min": 20, "max": 160, "step": 2 },
+        "hint": "决定整张键线式图的大小与杂原子标签字号。"
+      },
+      "line_width": {
+        "description": "键线粗细（像素）",
+        "type": "float",
+        "default": 2.6,
+        "slider": { "min": 0.5, "max": 8, "step": 0.1 }
+      },
+      "transparent": {
+        "description": "透明背景",
+        "type": "bool",
+        "default": false,
+        "hint": "深色主题下透明背景更协调。"
+      },
+      "show_hydrogens": {
+        "description": "在杂原子上写出氢",
+        "type": "bool",
+        "default": true,
+        "hint": "开启后羟基写成 OH、氨基写成 NH₂，符合教材习惯。"
+      },
+      "prefer_for_cyclic": {
+        "description": "环状物质优先出键线式",
+        "type": "bool",
+        "default": true,
+        "hint": "苯的连写式简式就是 C6H6，信息量很低；开启后苯、环己烷、甲苯这类会直接画成键线式。内置词表里指定的教材简式（如葡萄糖 CH2OH(CHOH)4CHO）不受影响。"
+      }
+    }
+  },
+  "output": {
+    "description": "文字输出",
+    "type": "object",
+    "items": {
+      "with_text": {
+        "description": "图片之外再发一段文字信息",
+        "type": "bool",
+        "default": true
+      },
+      "show_smiles": {
+        "description": "文字中显示 SMILES",
+        "type": "bool",
+        "default": true
+      },
+      "show_percent": {
+        "description": "文字中显示元素质量分数",
+        "type": "bool",
+        "default": true
+      },
+      "max_notes": {
+        "description": "最多显示几条提示",
+        "type": "int",
+        "default": 3,
+        "slider": { "min": 0, "max": 10, "step": 1 }
+      }
+    }
+  },
+  "input": {
+    "description": "输入解析",
+    "type": "object",
+    "items": {
+      "enable_abbrev": {
+        "description": "识别 Me/Et/Ph 等基团缩写",
+        "type": "bool",
+        "default": true,
+        "hint": "开启后 PhCH3 会被解析成 C6H5CH3（甲苯）。"
+      },
+      "aggressive_abbrev": {
+        "description": "同时识别 Ac/Pr/Bz 等有歧义的缩写",
+        "type": "bool",
+        "default": false,
+        "hint": "Ac 同时是锕(Actinium)、Pr 同时是镨(Praseodymium)，开启后这些符号会按有机缩写解释，可能影响无机式子的解析。"
+      }
+    }
+  },
+  "cache": {
+    "description": "图片缓存",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用图片缓存",
+        "type": "bool",
+        "default": true
+      },
+      "max_files": {
+        "description": "缓存文件数上限",
+        "type": "int",
+        "default": 300,
+        "slider": { "min": 0, "max": 5000, "step": 50 }
+      },
+      "ttl_hours": {
+        "description": "缓存有效期（小时）",
+        "type": "int",
+        "default": 24,
+        "slider": { "min": 0, "max": 720, "step": 1 }
+      }
+    }
+  }
+}
