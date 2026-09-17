@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 venv/
 
+# 本地构建产物
+dist/
+
 # 运行时产生的图片缓存（正式部署时位于 AstrBot 的 data 目录）
 data/
 cache/

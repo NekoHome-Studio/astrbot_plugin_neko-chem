@@ -1,0 +1,134 @@
+name: Release plugin archive
+
+# 推 v* 标签即发布：校验标签与 metadata.yaml 版本一致 → 构建 ZIP → 挂到 Release。
+# 也可以在 Actions 页面手动指定标签重新发布（workflow_dispatch）。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已存在的 v* 标签，用于重新发布
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PLUGIN_NAME: astrbot_plugin_chem_structure
+
+jobs:
+  release:
+    name: 构建并发布
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: 确定发布标签
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          [[ "$tag" == v* ]] || { echo "发布标签必须以 v 开头：$tag" >&2; exit 1; }
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+          # 供 Release 说明使用：上一版本
+          previous="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
+      - name: 构建插件包
+        run: |
+          python3 scripts/build_release.py --tag "${{ steps.tag.outputs.value }}" --outdir dist
+
+      - name: 用 AstrBot 的校验逻辑验证产物
+        run: |
+          python3 - <<'PY'
+          import sys, zipfile, pathlib, yaml
+          archive = next(pathlib.Path("dist").glob("*.zip"))
+          with zipfile.ZipFile(archive) as z:
+              names = z.namelist()
+              roots = {n.split("/", 1)[0] for n in names}
+              assert roots == {"astrbot_plugin_chem_structure"}, f"顶层目录异常：{roots}"
+              meta = yaml.safe_load(z.read("astrbot_plugin_chem_structure/metadata.yaml"))
+              for key in ("name", "author", "desc", "version"):
+                  assert meta.get(key), f"metadata.yaml 缺少 {key}"
+              assert "astrbot_plugin_chem_structure/main.py" in names, "缺少 main.py"
+          print(f"{archive}: {len(names)} 个条目，metadata 正常")
+          PY
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_NAME }}-${{ steps.tag.outputs.value }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: 生成 Release 说明
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.tag.outputs.value }}"
+          previous="${{ steps.tag.outputs.previous }}"
+
+          if [[ -n "$previous" ]]; then
+            range="$previous..$tag"
+            compare="https://github.com/$GITHUB_REPOSITORY/compare/$previous...$tag"
+          else
+            range="$tag"
+            compare="https://github.com/$GITHUB_REPOSITORY/commits/$tag"
+          fi
+
+          # 取 CHANGELOG 里对应版本那一节
+          if [[ -f CHANGELOG.md ]]; then
+            awk -v heading="## $tag" '
+              index($0, heading) == 1 { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+            ' CHANGELOG.md > section.md
+          fi
+
+          {
+            echo "## 版本信息"
+            echo
+            echo "- 插件：\`$PLUGIN_NAME\`"
+            echo "- 版本：\`$tag\`"
+            if [[ -n "$previous" ]]; then echo "- 上一版本：\`$previous\`"; fi
+            echo
+            echo "## 改动"
+            echo
+            if [[ -s section.md ]]; then
+              cat section.md
+            else
+              git log "$range" --no-merges --format='- %s (`%h`)'
+            fi
+            echo
+            echo "[查看完整改动]($compare)"
+          } > notes.md
+
+      - name: 创建或更新 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.tag.outputs.value }}"
+          archive="$(ls dist/*.zip)"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$archive" --clobber
+            gh release edit "$tag" --title "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" "$archive" \
+              --verify-tag --title "$tag" --notes-file notes.md
+          fi
