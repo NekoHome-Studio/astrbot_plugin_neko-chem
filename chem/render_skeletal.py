@@ -169,9 +169,9 @@ def render_skeletal_png(
 
     if not layout.drawable:
         raise SkeletalRenderError(
-            "该分子的环系无法在平面上排成规整图形（"
+            "无法为该分子生成键线式："
             + "；".join(layout.issues)
-            + "），为避免画出错误结构已放弃绘制",
+            + "。为避免画出错误结构，已放弃绘制",
         )
     if not molecule.atoms or not layout.coords:
         raise SkeletalRenderError("分子为空，无法绘制")

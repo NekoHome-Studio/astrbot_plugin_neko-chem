@@ -70,10 +70,15 @@ SUBSCRIPT_DIGITS = "₀₁₂₃₄₅₆₇₈₉"
 SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 
 #: 聚合度这类变量下标对应的 Unicode 下标字符。
-VARIABLE_SUBSCRIPTS: dict[str, str] = {"n": "ₙ", "m": "ₘ", "x": "ₓ", "N": "ₙ"}
+VARIABLE_SUBSCRIPTS: dict[str, str] = {"n": "ₙ", "m": "ₘ", "x": "ₓ"}
 
 #: 允许作为聚合度变量下标的字母。
-VARIABLE_SUBSCRIPT_LETTERS = frozenset("nmxNMX")
+#:
+#: **只允许小写**。曾经把大写 N/M/X 也算进来，结果 ``CH3CN``（乙腈）里的氮
+#: 被当成前一个碳的聚合度下标，解析成 ``CH₃Cₙ``；``CH2=CHCN``（丙烯腈）、
+#: ``NN`` 同样受害。聚合度按惯例就是小写 ``n``（``(C6H10O5)n``），
+#: 大写字母一律按元素符号处理。
+VARIABLE_SUBSCRIPT_LETTERS = frozenset("nmx")
 
 _PLAIN_TO_SUBSCRIPT = str.maketrans("0123456789", SUBSCRIPT_DIGITS)
 _SUBSCRIPT_TO_PLAIN = str.maketrans(SUBSCRIPT_DIGITS, "0123456789")
@@ -323,7 +328,14 @@ def render(nodes: Iterable[Node], style: RenderStyle = "unicode") -> str:
 
 
 def render_ascii(nodes: Iterable[Node]) -> str:
-    """渲染为纯 ASCII，例如 ``CH3CH2OH``，用于日志与降级文本。"""
+    """渲染为纯 ASCII，例如 ``CH3CH2OH``，用于日志、缓存键与降级文本。
+
+    已知歧义：电荷用 ``-``/``+`` 表示，而 ``-`` 同时是键符号。对于**电荷
+    出现在分子中间**的写法（如硝酸根的 ``O⁻NO₂`` → ``O-NO2``），本函数的
+    输出重新解析时会被当成键，从而丢失电荷。位于末尾的电荷没有这个问题
+    （``CH3COO-``、``NH4+``），而教材写法里的离子电荷本来就在末尾。
+    图片与 Unicode 形式使用上标字符，不受影响。
+    """
     return render(nodes, "ascii")
 
 

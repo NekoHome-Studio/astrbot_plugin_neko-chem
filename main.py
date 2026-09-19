@@ -45,9 +45,8 @@ from .chem import (
 from .chem.render_png import RenderError as PngRenderError
 from .chem.render_png import RenderOptions  # noqa: F401 - 供类型提示
 from .chem.render_rdkit import rdkit_available
-from .service import PLUGIN_NAME, ChemSettings, RenderService
+from .service import PLUGIN_NAME, PLUGIN_VERSION, ChemSettings, RenderService
 
-PLUGIN_VERSION = "1.0.0"
 LOG_PREFIX = "[chem]"
 
 #: 单条回复的文本长度上限，超过就截断，避免刷屏。

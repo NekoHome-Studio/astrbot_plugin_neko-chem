@@ -884,7 +884,19 @@ def compute_layout(molecule: Molecule) -> Layout:
             f"该分子含 {len(rings)} 个环，自动排版在复杂稠环上可能不够美观",
         )
 
-    quality, issues = _assess_quality(molecule, coords)
+    components = molecule.component_count
+    if components > 1:
+        # 离子化合物（NaCl、CuSO4、Na2CO3…）由互不相连的组分构成，
+        # 键线式本来就不适用于这类物质。以前这里会走几何评估，报出
+        # "键长偏差 0.85 / 原子过近 0.34" 这种让人摸不着头脑的理由。
+        quality = "poor"
+        issues = [
+            f"该物质由 {components} 个互不相连的组分构成"
+            "（离子化合物或混合物），键线式不适用；"
+            "如需图示请改用结构简式或分子式",
+        ]
+    else:
+        quality, issues = _assess_quality(molecule, coords)
 
     return Layout(
         coords=coords,

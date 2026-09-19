@@ -38,6 +38,11 @@ from .chem.render_skeletal import (
 )
 
 PLUGIN_NAME = "astrbot_plugin_chem_structure"
+"""插件名。必须与 metadata.yaml 的 name 一致（Web API 路由前缀也用它）。"""
+
+PLUGIN_VERSION = "1.0.1"
+"""插件版本。必须与 metadata.yaml 的 version 一致；main.py 直接引用这里，
+测试里也有一条断言把三个地方锁在一起。"""
 
 DEFAULT_CACHE_DIR_NAME = "cache"
 
@@ -498,10 +503,12 @@ class RenderService:
         if layout is None:
             return None, "无法为该分子生成二维坐标"
         if not layout.drawable:
+            # 与 chem/render_skeletal.py 里的措辞保持一致：理由可能来自
+            # 几何无解（桥环）或多组分（离子化合物），不能都套"环系排不规整"
             return None, (
-                "该分子的环系无法在平面上排成规整图形（"
+                "无法为该分子生成键线式："
                 + "；".join(layout.issues)
-                + "），为避免画出错误结构已放弃绘制"
+                + "。为避免画出错误结构，已放弃绘制"
             )
 
         options = self.skeletal_options(title=title, caption=caption)
@@ -619,6 +626,7 @@ __all__ = [
     "InputSettings",
     "OutputSettings",
     "PLUGIN_NAME",
+    "PLUGIN_VERSION",
     "RenderService",
     "SkeletalSettings",
     "StructureRenderError",

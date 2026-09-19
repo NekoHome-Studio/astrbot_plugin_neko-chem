@@ -14,7 +14,9 @@
 """
 
 import io
+import json
 import os
+import pathlib
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -117,6 +119,13 @@ def test_condensed_parser() -> None:
         ("PhCH3", "C6H5CH3", "C7H8"),
         ("iPrOH", "CH(CH3)2OH", "C3H8O"),
         ("nBuOH", "CH2CH2CH2CH3OH", "C4H10O"),
+        # 回归：腈类。曾经把**大写** N 也当成聚合度下标，导致 CH3CN 被解析成
+        # CH₃Cₙ（"聚合度 n 不定"），丙烯腈、NN 同样受害。
+        ("CH3CN", "CH3CN", "C2H3N"),
+        ("CH2=CHCN", "CH2=CHCN", "C3H3N"),
+        ("CH3CH2CN", "CH3CH2CN", "C3H5N"),
+        ("NN", "NN", "N2"),
+        ("CH3NH2", "CH3NH2", "CH5N"),
     ]
     for text, ascii_text, formula in cases:
         parsed = parse_condensed(text)
@@ -125,6 +134,14 @@ def test_condensed_parser() -> None:
         check(parsed.formula == formula,
               f"{text} 分子式为 {parsed.formula}，应为 {formula}")
     print(f"  通过 {len(cases)} 组规范化用例")
+
+    # 腈类绝不能被误判成聚合度
+    for text in ("CH3CN", "CH2=CHCN", "NN", "CH3CH2CN"):
+        check(
+            not parse_condensed(text).indeterminate,
+            f"{text} 不该被判成含聚合度变量",
+        )
+    print("  腈类（CH3CN / CH2=CHCN / NN）解析正确")
 
     # 结晶水的系数前缀与聚合度变量
     parsed = parse_condensed("(C6H10O5)n")
@@ -588,6 +605,21 @@ def test_layout() -> None:
         check(bool(layout.issues), f"{smiles} 被拒绝时应当给出原因")
     print("  桥环结构按预期拒绝并给出原因")
 
+    # 离子化合物/多组分：理由必须是"不适用"，而不是让人看不懂的几何报错
+    for smiles, label in (
+        ("[Na+].[Cl-]", "氯化钠"),
+        ("[Na+].[OH-]", "氢氧化钠"),
+        ("[Cu+2].[O-]S(=O)(=O)[O-]", "硫酸铜"),
+        ("[Na+].[Na+].[O-]C(=O)[O-]", "碳酸钠"),
+    ):
+        layout = compute_layout(parse_smiles(smiles))
+        check(not layout.drawable, f"{label} 是离子化合物，不该出键线式")
+        check(
+            any("组分" in issue for issue in layout.issues),
+            f"{label} 的拒绝理由应说明是多组分，实际：{layout.issues}",
+        )
+    print("  离子化合物按预期拒绝，理由明确指向多组分")
+
 
 def test_skeletal_rendering() -> None:
     """键线式图片渲染。"""
@@ -608,7 +640,6 @@ def test_skeletal_rendering() -> None:
     samples = [
         "c1ccccc1", "C1CCCCC1", "c1ccncc1", "CCO", "CC(=O)O",
         "O=[N+]([O-])c1ccccc1", "c1ccc2ccccc2c1", "OCC1OC(O)C(O)C(O)C1O",
-        "[Na+].[Cl-]",
     ]
     inks: dict[str, int] = {}
     for smiles in samples:
@@ -710,18 +741,103 @@ def test_skeletal_rendering() -> None:
     # 排版不可用的分子必须拒绝出图
     from chem.render_skeletal import SkeletalRenderError
 
-    broken = parse_smiles("C1CC2CCC1C2")
-    try:
-        render_skeletal_png(broken, compute_layout(broken), SkeletalOptions())
-    except SkeletalRenderError:
-        print("  排版不可用时按预期拒绝出图")
-    else:
-        check(False, "排版不可用的分子应当拒绝出图")
+    for smiles, label in (("C1CC2CCC1C2", "桥环"), ("[Na+].[Cl-]", "离子化合物")):
+        molecule = parse_smiles(smiles)
+        try:
+            render_skeletal_png(molecule, compute_layout(molecule), SkeletalOptions())
+        except SkeletalRenderError as error:
+            check(
+                "无法为该分子生成键线式" in str(error),
+                f"{label} 的拒绝信息格式异常：{error}",
+            )
+        else:
+            check(False, f"{label}（{smiles}）应当拒绝出图")
+    print("  排版不可用时按预期拒绝出图（桥环 / 离子化合物）")
+
+
+def test_metadata_consistency() -> None:
+    """元数据与代码里的版本号、插件名必须一致。
+
+    这几种漂移都很容易犯而且不易察觉：改了 metadata.yaml 的 version 却忘了
+    代码里的版本号（或反过来），于是 /化学 状态 一直报旧版本。
+    """
+    section("元数据一致性")
+    root = pathlib.Path(__file__).resolve().parent.parent
+
+    def read_constants(path: pathlib.Path) -> dict[str, str]:
+        """从源码里读出 ``PLUGIN_NAME = "..."`` 这类顶层常量。
+
+        用 ``utf-8-sig`` 读：Windows 上的编辑器有时会加 BOM，那会把第一行的
+        键名变成 ``\\ufeffname``，导致误报"缺少 name"。
+        """
+        found: dict[str, str] = {}
+        for line in path.read_text(encoding="utf-8-sig").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, _, value = stripped.partition("=")
+            key = key.strip()
+            if key in {"PLUGIN_NAME", "PLUGIN_VERSION"}:
+                found[key] = value.strip().strip("\"'")
+        return found
+
+    metadata_path = root / "metadata.yaml"
+    check(metadata_path.is_file(), "找不到 metadata.yaml")
+    metadata: dict[str, str] = {}
+    for line in metadata_path.read_text(encoding="utf-8-sig").splitlines():
+        key, separator, value = line.partition(":")
+        if separator and key.strip() in {"name", "version"}:
+            metadata[key.strip()] = value.strip().strip("\"'")
+
+    check(bool(metadata.get("name")), "metadata.yaml 缺少 name")
+    check(bool(metadata.get("version")), "metadata.yaml 缺少 version")
+
+    # 这里按文本读常量而不是 import：service.py / main.py 用的是相对导入，
+    # 只有作为包被加载时才能 import，测试里直接读源码更稳，也不受目录名影响。
+    service_constants = read_constants(root / "service.py")
+    check("PLUGIN_NAME" in service_constants, "service.py 里找不到 PLUGIN_NAME")
+    check("PLUGIN_VERSION" in service_constants, "service.py 里找不到 PLUGIN_VERSION")
+    check(
+        metadata.get("name") == service_constants.get("PLUGIN_NAME"),
+        f"metadata.name={metadata.get('name')!r} 与 "
+        f"service.PLUGIN_NAME={service_constants.get('PLUGIN_NAME')!r} 不一致",
+    )
+    check(
+        metadata.get("version") == service_constants.get("PLUGIN_VERSION"),
+        f"metadata.version={metadata.get('version')!r} 与 "
+        f"service.PLUGIN_VERSION={service_constants.get('PLUGIN_VERSION')!r} 不一致",
+    )
+
+    # 版本号只允许定义一次：main.py 必须引用，不能自己再写一份
+    main_text = (root / "main.py").read_text(encoding="utf-8-sig")
+    check(
+        "from .service import" in main_text and "PLUGIN_VERSION" in main_text,
+        "main.py 应当从 service 引用 PLUGIN_VERSION",
+    )
+    check(
+        "PLUGIN_VERSION" not in read_constants(root / "main.py"),
+        "main.py 里重复定义了 PLUGIN_VERSION，应当只从 service 引用",
+    )
+
+    # _conf_schema.json 必须能解析，且每项都有 description 与 type
+    schema = json.loads((root / "_conf_schema.json").read_text(encoding="utf-8"))
+    for key, item in schema.items():
+        check(bool(item.get("description")), f"_conf_schema.json 的 {key} 缺少 description")
+        check(bool(item.get("type")), f"_conf_schema.json 的 {key} 缺少 type")
+        if item.get("type") == "object":
+            check(bool(item.get("items")), f"_conf_schema.json 的 {key} 是 object 但缺少 items")
+
+    print(
+        f"  插件名 {metadata.get('name')} / 版本 {metadata.get('version')} "
+        "（metadata ↔ service ↔ main 一致）",
+    )
+    print(f"  _conf_schema.json 顶层 {len(schema)} 组配置校验通过")
 
 
 def main() -> int:
     """跑完全部用例并汇总。"""
     print("化学结构简式插件 离线自检")
+    test_metadata_consistency()
     test_name_database()
     test_name_lookup()
     test_condensed_parser()
