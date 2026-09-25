@@ -1,6 +1,6 @@
 # astrbot_plugin_chem_structure · 化学结构简式
 
-> 仓库：[NekoHome-Studio/neko-chem](https://github.com/NekoHome-Studio/neko-chem) · 许可：MIT
+> 仓库：[NekoHome-Studio/astrbot_plugin_neko-chem](https://github.com/NekoHome-Studio/astrbot_plugin_neko-chem) · 许可：MIT
 
 一个 AstrBot 插件：把**中文名 / 俗名 / SMILES / 结构简式 / 分子式**画成图，
 并给出分子式、相对分子质量、元素质量分数。
